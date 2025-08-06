@@ -3,61 +3,62 @@
 #include <ezButton.h>
 
 // PIN DEFINITIONS
-constexpr int joy1B = 2;  // joystick 1 button
-constexpr int joy2B = 3;  // joystick 2 button
-constexpr int baseStepPin = 8;
-constexpr int baseDirPin = 9;
-constexpr int lowerArmStepPin = 6;
-constexpr int lowerArmDirPin = 7;
-constexpr int upperArmStepPin = 4;
-constexpr int upperArmDirPin = 5;
-constexpr int resetButtonPin = 12;  // New button pin
+constexpr int joy1B = 2; // joystick 1 button (captures neutral positions)
+constexpr int joy2B = 3; // joystick 2 button (returns to neutral positions)
+constexpr int baseStepPin = 8;      // base stepper step pin
+constexpr int baseDirPin = 9;       // base stepper direction pin
+constexpr int lowerArmStepPin = 6;  // lower arm stepper step pin
+constexpr int lowerArmDirPin = 7;   // lower arm stepper direction pin
+constexpr int upperArmStepPin = 4;  // upper arm stepper step pin
+constexpr int upperArmDirPin = 5;   // upper arm stepper direction pin
+constexpr int resetButtonPin = 12;  // reset button (runs predefined motion)
 
 // OTHER CONSTANTS
-constexpr int acceleration = 80;  // Acceleration for stepper motors
-constexpr int max_speed = 50;     // Maximum speed for stepper motors
-constexpr bool debug = true;      // Enable debug mode
-constexpr int debounce_time = 30;
+constexpr int acceleration = 80; // Acceleration for stepper motors
+constexpr int max_speed = 50;    // Maximum speed for stepper motors
+constexpr bool debug = true;     // Enable debug mode (serial output)
+constexpr int debounce_time = 30; // Button debounce time in ms
 
 // CLASS INSTANTIATIONS
-ezButton joy1Button(joy1B);
-ezButton joy2Button(joy2B);
-ezButton resetButton(resetButtonPin);  // New reset button
-AccelStepper baseStepper(AccelStepper::DRIVER, baseStepPin, baseDirPin);
-AccelStepper lowerArmStepper(AccelStepper::DRIVER, lowerArmStepPin,
-                             lowerArmDirPin);
-AccelStepper upperArmStepper(AccelStepper::DRIVER, upperArmStepPin,
-                             upperArmDirPin);
+ezButton joy1Button(joy1B);           // Button for capturing neutral positions
+ezButton joy2Button(joy2B);           // Button for returning to neutral positions
+ezButton resetButton(resetButtonPin); // Button for running predefined motion
+AccelStepper baseStepper(AccelStepper::DRIVER, baseStepPin, baseDirPin);         // Base stepper motor
+AccelStepper lowerArmStepper(AccelStepper::DRIVER, lowerArmStepPin, lowerArmDirPin); // Lower arm stepper motor
+AccelStepper upperArmStepper(AccelStepper::DRIVER, upperArmStepPin, upperArmDirPin); // Upper arm stepper motor
 
 // NEUTRAL POSITION VARIABLES
-long baseNeutralPos = 0;
-long lowerArmNeutralPos = 0;
-long upperArmNeutralPos = 0;
+long baseNeutralPos = 0;      // Neutral position for base stepper
+long lowerArmNeutralPos = 0;  // Neutral position for lower arm stepper
+long upperArmNeutralPos = 0;  // Neutral position for upper arm stepper
 
 // PREDEFINED MOTION FUNCTION
 void runPredefinedMotion() {
-  // Move each stepper +100 steps, then back to neutral
-  baseStepper.moveTo(baseStepper.currentPosition() + 10);
-  lowerArmStepper.moveTo(lowerArmStepper.currentPosition() + 20);
-  // upperArmStepper.moveTo(upperArmStepper.currentPosition() + 40);
-
-  while (baseStepper.distanceToGo() != 0 || lowerArmStepper.distanceToGo() != 0 || upperArmStepper.distanceToGo() != 0) {
+  // Example: Move lower arm and upper arm by fixed offsets, then return to neutral
+  lowerArmStepper.moveTo(lowerArmStepper.currentPosition() - 10);
+  upperArmStepper.moveTo(upperArmStepper.currentPosition() + 40);
+  
+  while (baseStepper.distanceToGo() != 0 ||
+        lowerArmStepper.distanceToGo() != 0 ||
+        upperArmStepper.distanceToGo() != 0) {
     baseStepper.run();
     lowerArmStepper.run();
     upperArmStepper.run();
   }
 }
 
+int r = 0; // Counter for test rounds
+
 void testSimpleLinesWithIncreasingSpeed(int rounds) {
-  int speed = 50;  // Initial speed
-  int accel = 80;  // Initial acceleration
-  int lower_step_between_rounds = 10;
+  int speed = 50; // Initial speed for test
+  int accel = 80; // Initial acceleration for test
+  int lower_step_between_rounds = 10; // Step offset between rounds for lower arm
 
   for (int i = 1; i <= rounds; i++) {
     Serial.print("Round: ");
     Serial.println(i + 1);
 
-    // base drawing motion
+    // Set speed and acceleration for each round
     baseStepper.setMaxSpeed(speed * i);
     baseStepper.setAcceleration(accel * i);
     lowerArmStepper.setMaxSpeed(speed * i);
@@ -65,6 +66,7 @@ void testSimpleLinesWithIncreasingSpeed(int rounds) {
     upperArmStepper.setMaxSpeed(speed * i);
     upperArmStepper.setAcceleration(accel * i);
 
+    // Move steppers to test positions and back to neutral
     baseStepper.moveTo(80);
     baseStepper.runToPosition();
 
@@ -83,61 +85,58 @@ void testSimpleLinesWithIncreasingSpeed(int rounds) {
     upperArmStepper.moveTo(upperArmNeutralPos);
     upperArmStepper.runToPosition();
 
-    // movement between rounds
+    // Small movement between rounds for lower arm
     lowerArmStepper.moveTo(lowerArmNeutralPos + 1);
   }
 }
 
-void testSimpleLinesAccuracy(int rounds) {
-  int lower_step_between_rounds = 20;
+int initial_speed = 25;     // Starting speed for accuracy test
+int speed_increment = 25;   // Speed increment per round
 
-  //lowerArmStepper.move(-2);
+void testSimpleLinesAccuracy(int round) {
+  int current_speed = initial_speed + speed_increment * round; // Speed for this round
 
-  for (int i = 1; i <= rounds; i++) {
-    Serial.print("Round: ");
-    Serial.println(i + 1);
+  baseStepper.setMaxSpeed(current_speed);
+  lowerArmStepper.setMaxSpeed(current_speed);
+  upperArmStepper.setMaxSpeed(current_speed);
 
-    // base drawing motion
-    int reps = 2;
-    for (int j = 0; j < reps; j++) {
-      baseStepper.moveTo(baseNeutralPos + 20);
-      baseStepper.runToPosition();
+  Serial.print("Round: ");
+  Serial.print(round + 1);
+  Serial.print(" | Speed: ");
+  Serial.println(current_speed);
 
-      lowerArmStepper.move(lowerArmNeutralPos + 20);
-      lowerArmStepper.runToPosition();
+  // base drawing motion
+  int reps = 5; // Number of repetitions per round
+  for (int j = 0; j < reps; j++) {
+    Serial.print("Repetition: ");
+    Serial.println(j + 1);
+    lowerArmStepper.moveTo(lowerArmNeutralPos - 24);
+    lowerArmStepper.runToPosition();
 
-      baseStepper.moveTo(baseNeutralPos);
-      baseStepper.runToPosition();
+    baseStepper.moveTo(baseNeutralPos + 80);
+    baseStepper.runToPosition();
 
-      if (j == reps) {
-        lowerArmStepper.moveTo(lowerArmNeutralPos);
-        lowerArmStepper.runToPosition();
-      }
-    }
+    lowerArmStepper.moveTo(lowerArmNeutralPos);
+    lowerArmStepper.runToPosition();
 
-    // movement between rounds
-    if (i != rounds) {
-      lowerArmStepper.moveTo(baseNeutralPos + 20);
-      lowerArmStepper.runToPosition();
-
-      upperArmStepper.moveTo(upperArmNeutralPos + lower_step_between_rounds * i);
-      upperArmStepper.runToPosition();
-
-      lowerArmStepper.moveTo(lowerArmNeutralPos - 20);
-      lowerArmStepper.runToPosition();
-    }
-
-    // Reset to neutral position
-    lowerArmNeutralPos = lowerArmStepper.currentPosition();
-    upperArmNeutralPos = upperArmStepper.currentPosition();
+    baseStepper.moveTo(baseNeutralPos);
+    baseStepper.runToPosition();
   }
+}
 
-  Serial.println("Test Motion Completed");
+// Predefined motion for weight test (executed step-by-step)
+void testWithWeight() {
+  upperArmStepper.moveTo(220); upperArmStepper.runToPosition();
+  upperArmStepper.moveTo(150); upperArmStepper.runToPosition();
+  lowerArmStepper.moveTo(-113); lowerArmStepper.runToPosition();
+  lowerArmStepper.moveTo(0); lowerArmStepper.runToPosition();
+  upperArmStepper.moveTo(220); upperArmStepper.runToPosition();
+  upperArmStepper.moveTo(0); upperArmStepper.runToPosition();
 }
 
 void setup() {
   Serial.begin(9600);
-
+  
   joy1Button.setDebounceTime(debounce_time);
   joy2Button.setDebounceTime(debounce_time);
   resetButton.setDebounceTime(debounce_time);
@@ -158,7 +157,7 @@ void setup() {
 void loop() {
   joy1Button.loop();
   joy2Button.loop();
-  resetButton.loop();  // Poll new button
+  resetButton.loop(); // Poll new button
 
   // Button 1: Capture neutral positions
   if (joy1Button.isPressed()) {
@@ -167,18 +166,24 @@ void loop() {
     lowerArmNeutralPos = lowerArmStepper.currentPosition();
     upperArmNeutralPos = upperArmStepper.currentPosition();
   }
-
-  // Button 2: Run predefined motion
-  // if (joy2Button.isPressed()) {
+  
+  // Run the prerecorded motion with increasing speed when resetButton is pressed
+  /*
   if (resetButton.isPressed()) {
-    Serial.println("Joystick 2 Button Pressed - Running Predefined Motion");
-    testSimpleLinesAccuracy(3);  // Run the test with 3 rounds
+    Serial.println("Reset Button Pressed - Running Predefined Motion with Increasing Speed");
+    testSimpleLinesAccuracy(r); // Run the test with 3 rounds
+    r += 1; // Increment round for next test
   }
+  */
+  ///*
+  if (resetButton.isPressed()) {
+    testWithWeight();
+  }
+  //*/
 
-  // Reset Button: Move motors back to captured neutral positions
-  // if (resetButton.isPressed()) {
+  // Move motors back to captured neutral positions when joy2Button is pressed
   if (joy2Button.isPressed()) {
-    Serial.println("Reset Button Pressed - Returning to Neutral Positions");
+    Serial.println("Joystick 2 Button Pressed - Returning to Neutral Positions");
     baseStepper.moveTo(baseNeutralPos);
     lowerArmStepper.moveTo(lowerArmNeutralPos);
     upperArmStepper.moveTo(upperArmNeutralPos);
@@ -189,10 +194,10 @@ void loop() {
   lowerArmStepper.run();
   upperArmStepper.run();
 
-  // non-blocking delay
-  static unsigned long lastTime = 0;
+  // non-blocking delay for debug output
+  static unsigned long lastTime = 0; // Last time debug was printed
   unsigned long currentTime = millis();
-  if (debug && currentTime - lastTime >= 300) {  // 100 ms delay
+  if (debug && currentTime - lastTime >= 300) { // 300 ms delay
     lastTime = currentTime;
 
     Serial.print("Base Position: ");
